@@ -3,18 +3,29 @@ Parse Paradigm files
 """
 
 
+class ParsingError(Exception):
+    """Custom error class"""
+    pass
+
+
 class Plate:
     """Plate class within a Paradigm file"""
 
     def __init__(self, data_sublist):
         data_sublist = list(filter(None, data_sublist))
-        assert len(data_sublist) == 4, print(data_sublist)
-        assert data_sublist[-1] == "~End"
-        assert data_sublist[0].startswith("Plate")
+        if len(data_sublist) != 4:
+            raise ParsingError
+        if data_sublist[-1] != "~End":
+            raise ParsingError
+        if not data_sublist[0].startswith("Plate"):
+            raise ParsingError
         self.data_sublist = data_sublist
 
     def __str__(self):
         return self.plate_name
+
+    def __repr__(self):
+        return f"Plate object <{self.plate_name}>"
 
     @property
     def plate_name(self):
@@ -47,23 +58,26 @@ class Paradigm:
 
     def __init__(self, filepath, encoding="latin-1"):
         self.filepath = filepath
-        self.encoding = encoding
-        self.data_list = self.open_file()
+        self.data_list = self.open_file(encoding)
         self.plate_list = self.split_into_plates()
-        self.plates = {}
-        for plate_sub_list in self.plate_list:
+        self.plate_store = {}
+        self.plates = []
+        # TODO try and handle encoding errors automatically by trying
+        # different encodings on ParsingErrors
+        for index, plate_sub_list in enumerate(self.plate_list):
             plate = Plate(plate_sub_list)
-            self.plates[plate.plate_name] = plate
+            self.plate_store[plate.plate_name] = plate
+            self.plates.append(plate.plate_name)
 
     def __len__(self):
         return len(self.plates)
 
-    def __getitem__(self, index):
-        return list(self.plates.values())[index]
+    def __getitem__(self, name):
+        return self.plate_store[name].parse()
 
-    def open_file(self):
+    def open_file(self, encoding):
         """open file to list, line per item"""
-        with open(self.filepath, "r", encoding=self.encoding) as f:
+        with open(self.filepath, "r", encoding=encoding) as f:
             data = [i.strip() for i in f.readlines()]
         return data
 
